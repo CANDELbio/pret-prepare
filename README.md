@@ -43,3 +43,7 @@ For detailed notes on the prepare process, see the [docs.](docs/prepare.md)
 # Developer Notes
 
 For developer notes see [DEVELOPMENT.md](DEVELOPMENT.md).
+
+# Copyright
+
+Copyright the Parker Institute for Cancer Immunotherapy. Released under terms of the [Apache License](LICENSE.md).
