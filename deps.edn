@@ -1,0 +1,32 @@
+{:deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        com.cognitect/anomalies {:mvn/version "0.1.12"}
+        com.cognitect.aws/endpoints {:mvn/version "1.1.11.969"}
+        com.cognitect.aws/sns       {:mvn/version "697.2.391.0"}
+        com.datomic/datomic-pro {:mvn/version "1.0.6316"
+                                 :exclusions [org.slf4j/jul-to-slf4j org.slf4j/slf4j-nop]}
+        com.cognitect.aws/api       {:mvn/version "0.8.505"}
+        com.cognitect.aws/s3        {:mvn/version "811.2.858.0"}
+        org.clojure/data.csv {:mvn/version "1.0.0"}
+        org.clojure/core.async {:mvn/version "1.5.648"}
+        org.clojure/tools.logging {:mvn/version "0.4.1"}
+        org.clojure/alpha.spec {:git/url "https://github.com/clojure/spec-alpha2.git"
+                                :sha "3d32b5e571b98e2930a7b2ed1dd9551bb269375a"}
+        ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
+        org.clojure/tools.cli {:mvn/version "1.0.206"}
+        benkamphaus/contextual {:git/url "https://github.com/benkamphaus/contextual.git"
+                                :sha "b36cd30c167106e9bd2c6dbac3c75e4f58bb181a"
+                                :exclusions [org.clojure/clojurescript]}}
+
+ :mvn/repos {"my.datomic.com" {:url "https://my.datomic.com/repo"}}
+ :paths ["src" "resources"]
+ :aliases {:dev {:extra-paths ["dev" "test"]}
+           :perf {:extra-paths ["test"]}
+           :test {:extra-paths ["test"]
+                  :extra-deps {com.cognitect/test-runner {:git/url "git@github.com:cognitect-labs/test-runner.git"
+                                                          :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                  :main-opts ["-m" "cognitect.test-runner"]}
+           :depstar
+             {:extra-deps
+               {seancorfield/depstar {:mvn/version "0.1.6"}}
+              :main-opts ["-m" "hf.depstar.uberjar"]}
+           :verbose {:verbose true}}}
