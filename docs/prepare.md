@@ -72,7 +72,13 @@ using the information in the metamodel.
 
 ### Indexed data
 
-Indexed Schema data is stored in different index types. e.g., `:index/idents` as:
+Because the naive representation of the schema and metamodel in EDN form (or in Datomic's query EDN form) stores data
+in a dynamic array (a Clojure vector), naive use of the data for inference runs in `O(n)` where `n` is the number of
+attributes, metamodel annotations, and idents in the schema. To improve performance in the prepare path, this data is
+stored as nested hash-maps (Clojure maps) so that parsing functions that use kind data for inference run in constant time,
+usually in 2-3 nested hashmap lookups per call.
+
+Indexed Schema data is stored in different index types based on the leading key. e.g., `:index/idents` as:
 
 ```clojure
 #:index{:idents {:measurement/tumor-purity {:db/id 220, :db/ident :measurement/tumor-purity ...
@@ -80,7 +86,7 @@ Indexed Schema data is stored in different index types. e.g., `:index/idents` as
 ```
 
 Allows for any attribute, etc. to be looked up by its ident in constant time (instead of e.g. via seq manipulation
-or tree lookup).
+or tree walking).
 
 
 ## Mappings
@@ -119,17 +125,19 @@ Supports:
 (get-in mappings [:enum/metastasis "T"])
 ```
 
-## Config File
+## Config File Parsing
 
-When the config file is parsed, three different components are extracted:
+When the config file is parsed, four different components are extracted:
 
 1. Information on structure and context for all entity maps in config tree
 2. Literal data to be transacted
-3. File processing directives defined in the config file (anytime `:pret/file` appears)
+3. File processing directives defined in the config file (any time `:pret/input-file` appears)
+4. Matrix processing directives defined in the config file (any time `:pret.matrix/input-file` appears)
 
 Functionality for parsing the config file is in the namespace `org.parkerici.pret.parse.config`
 
-Part of the contextual information that matters is structural. That is, the nesting of entities, such as import -> dataset -> assay -> measurement-set, etc. matters. This context is parsed with the library contextual and then stored through annotations on the config’s in-memory edn representation.
+The context for all entities is inferred from structure. I.e., the nesting of entities, such as import -> dataset -> assay -> measurement-set, etc. must correspond to kind parent and child relations.
+This context is parsed with the library contextual and then stored through annotations on the config’s in-memory edn representation.
 
 The data that is not stored as literals, but must instead be parsed from files is parsed through `org.parkerici.pret.import.engine.parse.data` using the full schema and import context. Each of these directives defines a job that the engine runs.
 
@@ -162,7 +170,7 @@ etc.
 
 ## Job Execution
 
-Execution of jobs is done in parallel through core.async, as is each line of each file defined by directive. All files are tab separated value files, and the directives contain a specification of how the remapping is to be done from each record (one row, or line, of a file).
+Jobs are executed in parallel using core.async channels, as is each line of each file defined by directive. All files are tab separated value files, and the directives contain a specification of how the remapping is to be done from each record (one row, or line, of a file).
 
 One file being processed is run with `job->file`, and a number of these are run at once with parallelism equivalent to the `file-worker-count` pret setting.
 
@@ -173,9 +181,11 @@ Each file is processed asynchronously, (this is done because file IO is not the 
 
 ### Expected error behavior
 
-Error handling is done via anomalies. Parts of the code that can throw are wrapped in try/catch and this returns anomalies when encountered. When anomalies show up on channels that otherwise expecting results, the anomalies propagate up, eventually either being logged (when `continue-on-error` is set), or throwing (and aborting prepare) [this is the default behavior].
+Errors are handled within code and reported to users using the [anomalies library](https://github.com/cognite).
+Code in the asynchronous paths that can throw is wrapped in try/catch and returns anomalies errors are encountered.
+When anomalies are placed on channels instead of parsing results, the anomalies propagate up, eventually either being logged (when `continue-on-error` is set), or throwing and aborting prepare (the default behavior). This hoists all error handling to be data-driven at the synchronous level, so that users and developers do not have to dig through core.async stack traces.
 
-Anomalies are used to keep from throwing in nested threads in core.async, as this becomes very tricky to troubleshoot and throws confusing stack traces which expose pret internals in front of end users. Anomalies are formated with a convention that is parsed through common error handling logic. One key is provided per appropriate context where an error occurs. For instance, if an error with a data file is a missing var to column mapping, you might see:
+Anomalies are formatted with a convention that is parsed through common error handling logic. One key is provided per appropriate context where an error occurs. For instance, if an error with a data file is a missing var to column mapping, you might see:
 
 ```clojure
 :data-file/missing-var-column-mapping {:column-name col, :vars [v1, v2, v3] :data-file fname}
@@ -193,7 +203,7 @@ The record processing flow is illustrated below:
 
 _Note_: that this is a post-facto diagram, not a design specification, and any difference in this chart versus the code should prioritize the code as the source of correctness.
 
-On the left are all the different data structures used to construct an entity from a row in a file. On the left are all the components of the record processing workflow. The arrows between the sections show the dependencies each has on data and try to dilineate, when possible, which
+On the left are all the different data sources used to construct an entity from a row in a file. On the right are the components of the record processing workflow. The arrows between the sections show the dependencies each has on data and try to dilineate, when possible, which
 dependencies are necessary at a top level, and which are necessary because they are threaded down to common processing logic (most of which is in `resolve-value` and `parse-value`)
 
 The order independent extracted components are:
@@ -278,3 +288,19 @@ and types).
 
 _Note_: the context ID resolution is all driven by the config and its structure, as well as the metamodel from the Datomic schema. Nothing here is hard-coded to the pret schema and if anything is found to be incorrect in the current logic, this invariant (data driven resolution based on
   metamodel) should be preserved.
+
+# Matrix Parsing
+
+In addition to preparing records to be transacted into a backing database, pret can also prepare large matrices for storage adjacent to the relational database.
+E.g. for extremely large matrices, like spatially resoolved single cell data, storing each granular measurement quickly pushes the limits of Datomic and traditional relational databases.
+Instead, pret stores all referential data (e.g. the genes and samples referred to by the assay's measurement) on a matrix entity, and stores the entire field of measurements in a matrix that is stored in a large blob file store or key value store such as Amazon S3.
+
+![Matrix storage](prepare/matrix-diagram.png))
+
+Matrix jobs require a `:pret.matrix/input-file` key, and a list of columns that store relational data. Matrices can be prepared in either sparse or dense form. A matrix can be arbitrarily expanded to an NDArray in dimensionality by increasing the number of indexed dimensions.
+For example, a spatially resolved single cell dataset could be indexed by: sample, gene product, x coordinate, y coordinate (four dimensions).
+
+Pret normalizes column names and writes the matrix table files to the prepare working directory under `matrix-data`.
+Matrix entity data is guaranteed to require no incoming references, and so transacts at the last priority, meaning all matrix entity edn files are prefixed with `99-priority`).
+
+
