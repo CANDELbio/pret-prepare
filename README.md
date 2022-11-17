@@ -10,8 +10,6 @@ Using this input, `pret` will:
 This directory serves as a common interface point for CANDEL transaction backends to use to import data into different databases, such as Datomic Cloud or On-Prem.
 
 
-TODO: new CircleCI badge for prepare repo.
-
 ## Rationale
 
 Pret provides a data-driven and declarative "no code" solution to a common ETL workflow: mapping data from tabular form into entity maps.
