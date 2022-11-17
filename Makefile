@@ -8,7 +8,7 @@ version-info: clean
 	echo "{:pret/version \"$(VERSION)\"}" > resources/info.edn
 
 cache-schema:
-	clojure -M -m org.parkerici.pret.db.schema.cache
+	clojure -M -m org.candelbio.pret.db.schema.cache
 
 uberjar: version-info cache-schema
 	clojure -Mdepstar target/pret.jar

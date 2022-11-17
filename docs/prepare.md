@@ -134,12 +134,12 @@ When the config file is parsed, four different components are extracted:
 3. File processing directives defined in the config file (any time `:pret/input-file` appears)
 4. Matrix processing directives defined in the config file (any time `:pret.matrix/input-file` appears)
 
-Functionality for parsing the config file is in the namespace `org.parkerici.pret.parse.config`
+Functionality for parsing the config file is in the namespace `org.candelbio.pret.parse.config`
 
 The context for all entities is inferred from structure. I.e., the nesting of entities, such as import -> dataset -> assay -> measurement-set, etc. must correspond to kind parent and child relations.
 This context is parsed with the library contextual and then stored through annotations on the config’s in-memory edn representation.
 
-The data that is not stored as literals, but must instead be parsed from files is parsed through `org.parkerici.pret.import.engine.parse.data` using the full schema and import context. Each of these directives defines a job that the engine runs.
+The data that is not stored as literals, but must instead be parsed from files is parsed through `org.candelbio.pret.import.engine.parse.data` using the full schema and import context. Each of these directives defines a job that the engine runs.
 
 The least straight forward portion of the config parsing is as follows: There are two passes through the config file, one prior to namespacing, and one after. The reason for this is that we need to infer the namespaces of keys that occur in the context of the config map from their structure before we can namespace them. To use the example from above:
 
@@ -279,7 +279,7 @@ The logic of self-uid-data, reverse-ref-data, and other reference resolution is 
 ```
 
 For each attribute in the path, we must resolve partial UID context segments from each. So in the case above, we need the dataset
-identifier, the subject identifier, and the therapy identifier. Attributes used for context ID are specified in the metamodel. While there are a few entries into UID resolution, all currently falls back to `resolve-uid` in the code, currently [here](https://github.com/ParkerICI/pret/blob/master/src/org/parkerici/pret/import/engine/parse/data.clj#L111-L136).
+identifier, the subject identifier, and the therapy identifier. Attributes used for context ID are specified in the metamodel. While there are a few entries into UID resolution, all currently falls back to `resolve-uid` in the code.
 
 The code iterates through the context stack, prepending relevant portions of the UID when necessary. Any context prefix must be a data literal,
 but the resolution of which of these matters for certain entities because, due to where they are nested, an entity may refer to e.g. therapies

@@ -52,7 +52,7 @@ the `schema.edn`, `metamodel.edn`, or `enums.edn` files. This can be done with t
 
 
 ```
-clojure -M -m org.parkerici.pret.db.schema.cache
+clojure -M -m org.candelbio.pret.db.schema.cache
 ```
 
 ## Running Pret CLI
